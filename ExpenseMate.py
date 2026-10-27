@@ -93,36 +93,110 @@ elif page == "❌ Delete Expense":
     else:
         st.warning("⚠️ No expenses to delete!")
 
+
 elif page == "📊 View Report":
-    st.title("📊 Expense Report")
+    st.title("📊 Monthly Expense Report")
 
     df = pd.read_sql("SELECT * FROM expenses", conn)
 
     if not df.empty:
-        df["date"] = pd.to_datetime(df["date"]).dt.date
-        df["time"] = pd.to_datetime(df["time"], format='%I:%M %p').dt.strftime('%I:%M %p')
+        df["date"] = pd.to_datetime(df["date"])
 
-        st.subheader("💼 Expense Details")
-        st.dataframe(df[['id', 'date', 'time', 'category', 'description', 'amount']].rename(columns={"amount": "Amount (₹)"}))
+        # Include the current month and months with recorded expenses
+        current_month = datetime.today().strftime("%Y-%m")
+        available_months = sorted(
+            set(df["date"].dt.strftime("%Y-%m").tolist() + [current_month]),
+            reverse=True
+        )
 
-        category_expense = df.groupby("category")["amount"].sum().reset_index()
-        fig = px.pie(category_expense, names="category", values="amount", title="📌 Expenses by Category (₹)")
-        st.plotly_chart(fig)
+        selected_month = st.selectbox(
+            "📅 Select month",
+            available_months,
+            format_func=lambda month: datetime.strptime(
+                month, "%Y-%m"
+            ).strftime("%B %Y")
+        )
 
-        fig2 = px.line(df, x="date", y="amount", title="📉 Spending Over Time (₹)", markers=True)
-        st.plotly_chart(fig2)
+        # Filter records to the selected month
+        monthly_df = df[
+            df["date"].dt.strftime("%Y-%m") == selected_month
+        ].copy()
 
-        total_spent = df["amount"].sum()
+        total_spent = monthly_df["amount"].sum()
         remaining_budget = budget - total_spent
 
-        st.subheader("💡 Budget Summary")
-        st.metric(label="Total Spent", value=f"₹{total_spent:,.2f}")
-        st.metric(label="Remaining Budget", value=f"₹{remaining_budget:,.2f}")
+        st.subheader("💰 Budget Summary")
+        col1, col2 = st.columns(2)
 
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("📥 Download Report as CSV", csv, "expenses_report.csv", "text/csv")
+        col1.metric("Total Spent", f"₹{total_spent:,.2f}")
+        col2.metric(
+            "Remaining Budget",
+            f"₹{remaining_budget:,.2f}",
+            delta=f"{remaining_budget:,.2f}"
+        )
+
+        if remaining_budget < 0:
+            st.error(
+                f"⚠️ Budget exceeded by ₹{abs(remaining_budget):,.2f}!"
+            )
+        elif budget > 0 and total_spent >= budget * 0.8:
+            st.warning("⚠️ You've used at least 80% of your monthly budget.")
+        else:
+            st.success("You're within your monthly budget.")
+
+        if not monthly_df.empty:
+            monthly_df["time"] = pd.to_datetime(
+                monthly_df["time"], format="%I:%M %p"
+            ).dt.strftime("%I:%M %p")
+
+            st.subheader("💼 Expenses for Selected Month")
+            display_df = monthly_df[
+                ["id", "date", "time", "category", "description", "amount"]
+            ].copy()
+            display_df["date"] = display_df["date"].dt.date
+            display_df = display_df.rename(
+                columns={"amount": "Amount (₹)"}
+            )
+            st.dataframe(display_df, use_container_width=True)
+
+            category_expense = (
+                monthly_df.groupby("category", as_index=False)["amount"]
+                .sum()
+            )
+            fig = px.pie(
+                category_expense,
+                names="category",
+                values="amount",
+                title="Expenses by Category (₹)"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            daily_expense = (
+                monthly_df.groupby("date", as_index=False)["amount"]
+                .sum()
+                .sort_values("date")
+            )
+            fig2 = px.line(
+                daily_expense,
+                x="date",
+                y="amount",
+                title="Daily Spending (₹)",
+                markers=True
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+
+            csv = monthly_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "📥 Download Monthly Report as CSV",
+                csv,
+                f"expenses_{selected_month}.csv",
+                "text/csv"
+            )
+        else:
+            st.info("No expenses recorded for this month yet.")
     else:
         st.warning("⚠️ No expenses recorded yet!")
+
 
 # Close database connection
 conn.close()
