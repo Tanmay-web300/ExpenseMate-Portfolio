@@ -45,8 +45,14 @@ A personal finance dashboard built with Python and Streamlit to track expenses, 
 5. Open the local URL shown in your terminal.
 
 ## Project Background
+## Project Background
 
-This project is based on the original [ExpenseMate repository by atharvbyadav](https://github.com/atharvbyadav/ExpenseMate). I extended it with monthly expense reports, budget monitoring, and spending alerts.
+This project is an enhanced version of the original ExpenseMate application. I extended its functionality with monthly expense reports, budget monitoring, and spending alerts to improve expense tracking and analysis.
+
+### Key Enhancements
+- Added budget monitoring with remaining-budget indicators and spending alerts.
+- Implemented monthly expense filtering and reporting.
+- Enhanced expense analysis with category-wise visualizations and CSV export.
 
 ## License
 
